@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.env
+backend/data/
+backend/artifacts/
+backend/models/*.joblib
+frontend/.next/
+frontend/node_modules/

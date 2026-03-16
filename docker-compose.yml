@@ -1,0 +1,175 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: ps13-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-threatintel}
+      POSTGRES_USER: ${POSTGRES_USER:-threat}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-threat}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-threat} -d ${POSTGRES_DB:-threatintel}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: ps13-redis
+    ports:
+      - "6379:6379"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ps13-backend
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://threat:threat@db:5432/threatintel}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      MODEL_PATH: ${MODEL_PATH:-/app/models/model.joblib}
+      SECRET_KEY: ${SECRET_KEY:-supersecret-dev-key}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES:-480}
+      API_KEY_PEPPER: ${API_KEY_PEPPER:-ps13-pepper}
+      ALLOW_PLAIN_API_KEYS: ${ALLOW_PLAIN_API_KEYS:-true}
+      CLASSIFIER_MODE: ${CLASSIFIER_MODE:-sklearn}
+      LLM_API_BASE: ${LLM_API_BASE:-http://llm:8000/v1}
+      LLM_API_KEY: ${LLM_API_KEY:-EMPTY}
+      LLM_MODEL_NAME: ${LLM_MODEL_NAME:-Qwen/Qwen2.5-3B-Instruct}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-45}
+      DEDUP_SIMILARITY_THRESHOLD: ${DEDUP_SIMILARITY_THRESHOLD:-0.95}
+      DEDUP_SCAN_LIMIT: ${DEDUP_SCAN_LIMIT:-80}
+      EMBEDDING_MODE: ${EMBEDDING_MODE:-semantic}
+      EMBEDDING_MODEL_NAME: ${EMBEDDING_MODEL_NAME:-sentence-transformers/all-MiniLM-L6-v2}
+      ANCHOR_INTERVAL: ${ANCHOR_INTERVAL:-50}
+      SOURCE_RELIABILITY_DEFAULT: ${SOURCE_RELIABILITY_DEFAULT:-60}
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ps13-worker
+    command: celery -A app.tasks.worker_app.celery_app worker --loglevel=info
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://threat:threat@db:5432/threatintel}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      MODEL_PATH: ${MODEL_PATH:-/app/models/model.joblib}
+      SECRET_KEY: ${SECRET_KEY:-supersecret-dev-key}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES:-480}
+      API_KEY_PEPPER: ${API_KEY_PEPPER:-ps13-pepper}
+      ALLOW_PLAIN_API_KEYS: ${ALLOW_PLAIN_API_KEYS:-true}
+      CLASSIFIER_MODE: ${CLASSIFIER_MODE:-sklearn}
+      LLM_API_BASE: ${LLM_API_BASE:-http://llm:8000/v1}
+      LLM_API_KEY: ${LLM_API_KEY:-EMPTY}
+      LLM_MODEL_NAME: ${LLM_MODEL_NAME:-Qwen/Qwen2.5-3B-Instruct}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-45}
+      DEDUP_SIMILARITY_THRESHOLD: ${DEDUP_SIMILARITY_THRESHOLD:-0.95}
+      DEDUP_SCAN_LIMIT: ${DEDUP_SCAN_LIMIT:-80}
+      EMBEDDING_MODE: ${EMBEDDING_MODE:-semantic}
+      EMBEDDING_MODEL_NAME: ${EMBEDDING_MODEL_NAME:-sentence-transformers/all-MiniLM-L6-v2}
+      ANCHOR_INTERVAL: ${ANCHOR_INTERVAL:-50}
+      SOURCE_RELIABILITY_DEFAULT: ${SOURCE_RELIABILITY_DEFAULT:-60}
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ps13-beat
+    command: celery -A app.tasks.worker_app.celery_app beat --loglevel=info --schedule /tmp/celerybeat-schedule
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://threat:threat@db:5432/threatintel}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      MODEL_PATH: ${MODEL_PATH:-/app/models/model.joblib}
+      SECRET_KEY: ${SECRET_KEY:-supersecret-dev-key}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES:-480}
+      API_KEY_PEPPER: ${API_KEY_PEPPER:-ps13-pepper}
+      ALLOW_PLAIN_API_KEYS: ${ALLOW_PLAIN_API_KEYS:-true}
+      CLASSIFIER_MODE: ${CLASSIFIER_MODE:-sklearn}
+      LLM_API_BASE: ${LLM_API_BASE:-http://llm:8000/v1}
+      LLM_API_KEY: ${LLM_API_KEY:-EMPTY}
+      LLM_MODEL_NAME: ${LLM_MODEL_NAME:-Qwen/Qwen2.5-3B-Instruct}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-45}
+      DEDUP_SIMILARITY_THRESHOLD: ${DEDUP_SIMILARITY_THRESHOLD:-0.95}
+      DEDUP_SCAN_LIMIT: ${DEDUP_SCAN_LIMIT:-80}
+      EMBEDDING_MODE: ${EMBEDDING_MODE:-semantic}
+      EMBEDDING_MODEL_NAME: ${EMBEDDING_MODEL_NAME:-sentence-transformers/all-MiniLM-L6-v2}
+      ANCHOR_INTERVAL: ${ANCHOR_INTERVAL:-50}
+      SOURCE_RELIABILITY_DEFAULT: ${SOURCE_RELIABILITY_DEFAULT:-60}
+      LIVE_POLL_SCHEDULER_SECONDS: ${LIVE_POLL_SCHEDULER_SECONDS:-60}
+      FEDERATION_SCHEDULER_SECONDS: ${FEDERATION_SCHEDULER_SECONDS:-300}
+      LIVE_FEED_REQUEST_TIMEOUT_SECONDS: ${LIVE_FEED_REQUEST_TIMEOUT_SECONDS:-60}
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ps13-frontend
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+      NEXT_PUBLIC_DEFAULT_API_KEY: ${NEXT_PUBLIC_DEFAULT_API_KEY:-orga_admin_key}
+      API_BASE_URL_INTERNAL: ${API_BASE_URL_INTERNAL:-http://backend:8000}
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+  llm:
+    image: vllm/vllm-openai:latest
+    container_name: ps13-llm
+    profiles: ["llm"]
+    command: >
+      --model ${LLM_MODEL_NAME:-Qwen/Qwen2.5-3B-Instruct}
+      --host 0.0.0.0
+      --port 8000
+      --dtype auto
+      --max-model-len 4096
+      --gpu-memory-utilization 0.92
+    environment:
+      HUGGING_FACE_HUB_TOKEN: ${HUGGING_FACE_HUB_TOKEN:-}
+    volumes:
+      - llm_cache:/root/.cache/huggingface
+    ports:
+      - "8001:8000"
+    gpus: all
+
+volumes:
+  postgres_data:
+  llm_cache:

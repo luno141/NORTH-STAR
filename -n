@@ -1,0 +1,7 @@
+86:            <p className="hud-panel-title">Scan Radar</p>
+90:            <p className="hud-panel-title">Global Orbital View</p>
+97:            <p className="hud-panel-title">Intel Pipeline</p>
+122:            <p className="hud-panel-title">Signal Telemetry</p>
+134:            <p className="hud-panel-title">Class Distribution</p>
+152:            <p className="hud-panel-title">Latest Event</p>
+187:          <p className="hud-panel-title">Threat Feed Table</p>

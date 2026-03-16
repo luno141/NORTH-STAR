@@ -1,0 +1,6 @@
+indicator_type,value,tags,confidence,context_text,evidence
+domain,auth-verification-portal.net,"phishing,credential",74,Credential harvesting domain seen in email lure,SEG + sandbox report
+ip,103.77.206.91,"c2,malware",69,Outbound traffic beacon to suspicious IP,Firewall telemetry and EDR beacon traces
+cve,CVE-2025-31411,"vuln,rce",81,Critical unauthenticated RCE discussed in advisory,Vendor advisory and exploit PoC reference
+hash,9e107d9d372bb6826bd81d3542a419d6,"malware,loader",66,Loader hash detected by endpoint telemetry,YARA rule and EDR quarantine event
+url,http://verify-payroll-updates.com/login,"phishing",78,Payroll impersonation phishing campaign reported,Email report and URL scan snapshot
